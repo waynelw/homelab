@@ -1,0 +1,60 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: docker-registry
+  namespace: registry
+spec:
+  interval: 15m
+  chart:
+    spec:
+      chart: docker-registry
+      version: "2.2.2"
+      sourceRef:
+        kind: HelmRepository
+        name: twuni
+        namespace: flux-system
+  values:
+    # 轻量级配置
+    replicaCount: 1
+    
+    # 资源限制
+    resources:
+      limits:
+        cpu: 100m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
+    
+    # 存储配置
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: standard
+    
+    # 服务配置
+    service:
+      type: ClusterIP
+      port: 5000
+    
+    # 配置
+    configData:
+      version: 0.1
+      log:
+        fields:
+          service: registry
+      storage:
+        cache:
+          blobdescriptor: inmemory
+        filesystem:
+          rootdirectory: /var/lib/registry
+      http:
+        addr: :5000
+        headers:
+          X-Content-Type-Options: [nosniff]
+      health:
+        storagedriver:
+          enabled: true
+          interval: 10s
+          threshold: 3

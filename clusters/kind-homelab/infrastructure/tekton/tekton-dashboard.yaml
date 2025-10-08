@@ -1,0 +1,38 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tekton-dashboard-install
+  namespace: tekton-pipelines
+data:
+  install-dashboard.sh: |
+    #!/bin/bash
+    # 安装Tekton Dashboard (轻量级UI)
+    kubectl apply --filename https://storage.googleapis.com/tekton-releases/dashboard/latest/release.yaml
+    
+    # 等待部署完成
+    kubectl wait --for=condition=ready pod -l app=tekton-dashboard -n tekton-pipelines --timeout=300s
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tekton-dashboard-installer
+  namespace: tekton-pipelines
+spec:
+  template:
+    spec:
+      serviceAccountName: tekton-installer
+      containers:
+      - name: installer
+        image: bitnami/kubectl:latest
+        command: ["/bin/bash"]
+        args: ["/scripts/install-dashboard.sh"]
+        volumeMounts:
+        - name: install-script
+          mountPath: /scripts
+      volumes:
+      - name: install-script
+        configMap:
+          name: tekton-dashboard-install
+          defaultMode: 0755
+      restartPolicy: OnFailure

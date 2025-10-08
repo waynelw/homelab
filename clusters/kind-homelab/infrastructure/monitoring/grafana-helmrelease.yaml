@@ -1,0 +1,91 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  interval: 15m
+  chart:
+    spec:
+      chart: grafana
+      version: "7.0.19"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: flux-system
+  values:
+    # 轻量级配置
+    replicaCount: 1
+    
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    
+    # 持久化存储
+    persistence:
+      enabled: true
+      size: 1Gi
+      storageClassName: standard
+    
+    # 管理员配置
+    adminUser: admin
+    adminPassword: admin123  # 生产环境请使用Secret
+    
+    # 数据源配置
+    datasources:
+      datasources.yaml:
+        apiVersion: 1
+        datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://prometheus-server.monitoring.svc.cluster.local
+          access: proxy
+          isDefault: true
+    
+    # 预装仪表板
+    dashboardProviders:
+      dashboardproviders.yaml:
+        apiVersion: 1
+        providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+    
+    dashboards:
+      default:
+        kubernetes-cluster:
+          gnetId: 7249
+          revision: 1
+          datasource: Prometheus
+        kubernetes-pods:
+          gnetId: 6417
+          revision: 1
+          datasource: Prometheus
+        node-exporter:
+          gnetId: 1860
+          revision: 31
+          datasource: Prometheus
+    
+    # 服务配置
+    service:
+      type: ClusterIP
+      port: 80
+    
+    # 简化的配置
+    grafana.ini:
+      analytics:
+        check_for_updates: false
+        reporting_enabled: false
+      log:
+        mode: console
+        level: warn

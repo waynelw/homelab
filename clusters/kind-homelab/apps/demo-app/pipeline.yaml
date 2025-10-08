@@ -1,0 +1,94 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: demo-app-pipeline
+  namespace: demo-app
+spec:
+  params:
+    - name: git-url
+      type: string
+      description: Git repository URL
+    - name: git-revision
+      type: string
+      description: Git revision
+      default: main
+    - name: image-name
+      type: string
+      description: Image name with registry
+
+  workspaces:
+    - name: shared-data
+      description: Shared workspace for pipeline tasks
+
+  tasks:
+    - name: fetch-source
+      taskRef:
+        name: git-clone
+        kind: ClusterTask
+        apiVersion: tekton.dev/v1beta1
+      workspaces:
+        - name: output
+          workspace: shared-data
+      params:
+        - name: url
+          value: $(params.git-url)
+        - name: revision
+          value: $(params.git-revision)
+
+    - name: build-image
+      taskRef:
+        name: buildah
+        kind: ClusterTask
+      runAfter:
+        - fetch-source
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: IMAGE
+          value: $(params.image-name)
+        - name: DOCKERFILE
+          value: ./Dockerfile
+
+    - name: deploy-app
+      taskRef:
+        name: kubectl-deploy
+      runAfter:
+        - build-image
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: image
+          value: $(params.image-name)
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: kubectl-deploy
+  namespace: demo-app
+spec:
+  params:
+    - name: image
+      type: string
+      description: Image to deploy
+
+  workspaces:
+    - name: source
+      description: Source code workspace
+
+  steps:
+    - name: deploy
+      image: bitnami/kubectl:latest
+      script: |
+        #!/bin/bash
+        set -e
+
+        # 更新deployment中的镜像
+        kubectl set image deployment/demo-app demo-app=$(params.image) -n demo-app
+
+        # 等待部署完成
+        kubectl rollout status deployment/demo-app -n demo-app --timeout=300s
+
+        echo "Deployment completed successfully!"
