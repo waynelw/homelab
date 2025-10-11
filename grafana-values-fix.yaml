@@ -1,0 +1,91 @@
+# Grafana修复配置
+adminPassword: admin123
+
+# 数据源配置
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - access: proxy
+      isDefault: true
+      name: Prometheus
+      type: prometheus
+      url: http://prometheus-server.monitoring.svc.cluster.local
+
+# 持久化存储
+persistence:
+  enabled: true
+  size: 1Gi
+
+# 资源限制
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# 服务配置
+service:
+  type: ClusterIP
+
+# 禁用init容器来解决权限问题
+initChownData:
+  enabled: false
+
+# 或者配置安全上下文（备选方案）
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 472
+  runAsGroup: 472
+  fsGroup: 472
+
+# 容器安全上下文
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 472
+  runAsGroup: 472
+
+# 预装仪表板配置
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+    - name: 'default'
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: false
+      editable: true
+      options:
+        path: /var/lib/grafana/dashboards/default
+
+dashboards:
+  default:
+    kubernetes-cluster:
+      gnetId: 7249
+      revision: 1
+      datasource: Prometheus
+    kubernetes-pods:
+      gnetId: 6417
+      revision: 1
+      datasource: Prometheus
+    node-exporter:
+      gnetId: 1860
+      revision: 31
+      datasource: Prometheus
+
+# Grafana配置
+grafana.ini:
+  analytics:
+    check_for_updates: false
+    reporting_enabled: false
+  log:
+    mode: console
+    level: warn

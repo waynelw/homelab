@@ -1,0 +1,93 @@
+---
+# ServiceAccount for Tekton Pipeline
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tekton-pipeline-sa
+  namespace: demo-app
+  labels:
+    app: tekton-pipeline
+---
+# Role with necessary permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: demo-app
+  name: tekton-pipeline-role
+  labels:
+    app: tekton-pipeline
+rules:
+# Deployment permissions
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "patch", "update", "create"]
+# Pod permissions  
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+# Service permissions
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list"]
+# ConfigMap and Secret permissions (for future use)
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list"]
+# ReplicaSet permissions (for deployment status)
+- apiGroups: ["apps"]
+  resources: ["replicasets"]
+  verbs: ["get", "list"]
+---
+# RoleBinding to connect ServiceAccount with Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tekton-pipeline-binding
+  namespace: demo-app
+  labels:
+    app: tekton-pipeline
+subjects:
+- kind: ServiceAccount
+  name: tekton-pipeline-sa
+  namespace: demo-app
+roleRef:
+  kind: Role
+  name: tekton-pipeline-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Updated PipelineRun with correct ServiceAccount
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: demo-app-run-20241008-002
+  namespace: demo-app
+  labels:
+    app: demo-app
+    pipeline: demo-simple-pipeline
+    version: v2
+spec:
+  serviceAccountName: tekton-pipeline-sa  # 使用新的ServiceAccount
+  pipelineRef:
+    name: demo-simple-pipeline
+  
+  params:
+    - name: git-url
+      value: "https://github.com/waynelw/homelab.git"
+    - name: git-revision
+      value: "main"
+    - name: image-name
+      value: "localhost:5000/demo-app:v1.2.0"
+  
+  workspaces:
+    - name: shared-data
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+  
+  timeouts:
+    pipeline: "30m"
+    tasks: "20m"

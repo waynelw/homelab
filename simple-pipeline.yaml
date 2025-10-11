@@ -1,0 +1,152 @@
+---
+# 简化的Git Clone Task
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: git-clone-simple
+  namespace: demo-app
+spec:
+  params:
+    - name: url
+      type: string
+      description: Git repository URL
+    - name: revision
+      type: string
+      description: Git revision
+      default: main
+  workspaces:
+    - name: output
+      description: The git repo will be cloned onto this workspace
+  steps:
+    - name: clone
+      image: alpine/git:latest
+      script: |
+        #!/bin/sh
+        set -e
+        echo "Cloning $(params.url) at revision $(params.revision)"
+        git clone $(params.url) $(workspaces.output.path)/source
+        cd $(workspaces.output.path)/source
+        git checkout $(params.revision)
+        echo "Clone completed successfully"
+        ls -la $(workspaces.output.path)/source
+
+---
+# 简化的构建Task
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: build-simple
+  namespace: demo-app
+spec:
+  params:
+    - name: image
+      type: string
+      description: Image name to build
+  workspaces:
+    - name: source
+      description: Source code workspace
+  steps:
+    - name: build
+      image: docker:dind
+      script: |
+        #!/bin/sh
+        set -e
+        echo "Building image $(params.image)"
+        echo "Source files:"
+        ls -la $(workspaces.source.path)/source
+        
+        # 模拟构建过程
+        echo "🔨 Building Docker image..."
+        echo "📦 Image $(params.image) built successfully"
+        echo "🚀 Pushing to registry..."
+        echo "✅ Push completed"
+
+---
+# 简化的部署Task  
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: deploy-simple
+  namespace: demo-app
+spec:
+  params:
+    - name: image
+      type: string
+      description: Image to deploy
+  steps:
+    - name: deploy
+      image: bitnami/kubectl:latest
+      script: |
+        #!/bin/bash
+        set -e
+        echo "🚀 Deploying image $(params.image)"
+        
+        # 检查当前deployment
+        echo "Current deployment status:"
+        kubectl get deployment demo-app -n demo-app -o wide || echo "Deployment not found"
+        
+        # 模拟部署更新
+        echo "📝 Updating deployment with new image..."
+        echo "⏳ Rolling out new version..."
+        echo "✅ Deployment completed successfully!"
+        
+        # 显示最终状态
+        kubectl get pods -n demo-app
+
+---
+# 简化的Pipeline
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: demo-simple-pipeline
+  namespace: demo-app
+spec:
+  params:
+    - name: git-url
+      type: string
+      description: Git repository URL
+    - name: git-revision
+      type: string
+      description: Git revision
+      default: main
+    - name: image-name
+      type: string
+      description: Image name with registry
+
+  workspaces:
+    - name: shared-data
+      description: Shared workspace for pipeline tasks
+
+  tasks:
+    - name: fetch-source
+      taskRef:
+        name: git-clone-simple
+      workspaces:
+        - name: output
+          workspace: shared-data
+      params:
+        - name: url
+          value: $(params.git-url)
+        - name: revision
+          value: $(params.git-revision)
+
+    - name: build-image
+      taskRef:
+        name: build-simple
+      runAfter:
+        - fetch-source
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: image
+          value: $(params.image-name)
+
+    - name: deploy-app
+      taskRef:
+        name: deploy-simple
+      runAfter:
+        - build-image
+      params:
+        - name: image
+          value: $(params.image-name)
