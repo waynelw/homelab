@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: init-demo
+  namespace: experiments
+spec:
+  initContainers:
+  - name: init-1
+    image: busybox
+    command: ['sh', '-c', 'echo "Init 1: Checking database..." && sleep 5']
+  - name: init-2
+    image: busybox
+    command: ['sh', '-c', 'echo "Init 2: Loading config..." && sleep 3']
+  containers:
+  - name: app
+    image: nginx:alpine
+    ports:
+    - containerPort: 80

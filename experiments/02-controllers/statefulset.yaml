@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: stateful-svc
+  namespace: experiments
+spec:
+  clusterIP: None  # Headless Service
+  selector:
+    app: stateful-demo
+  ports:
+  - port: 80
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stateful-demo
+  namespace: experiments
+spec:
+  serviceName: stateful-svc
+  replicas: 3
+  selector:
+    matchLabels:
+      app: stateful-demo
+  template:
+    metadata:
+      labels:
+        app: stateful-demo
+    spec:
+      containers:
+      - name: app
+        image: nginx:alpine
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          echo "Pod: $HOSTNAME" > /data/hostname.txt
+          echo "Started at: $(date)" >> /data/hostname.txt
+          nginx -g 'daemon off;'
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi

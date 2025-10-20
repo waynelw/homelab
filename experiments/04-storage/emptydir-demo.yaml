@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: emptydir-demo
+  namespace: experiments
+spec:
+  containers:
+  - name: writer
+    image: busybox
+    command: ["sh", "-c", "while true; do echo 'Data from writer at $(date)' >> /shared/data.log; sleep 10; done"]
+    volumeMounts:
+    - name: shared-data
+      mountPath: /shared
+  - name: reader
+    image: busybox
+    command: ["sh", "-c", "while true; do echo 'Reader sees:'; cat /shared/data.log; sleep 15; done"]
+    volumeMounts:
+    - name: shared-data
+      mountPath: /shared
+  volumes:
+  - name: shared-data
+    emptyDir: {}
+
