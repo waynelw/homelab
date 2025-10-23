@@ -479,3 +479,78 @@ pkill -f "kubectl port-forward"
 **实验记录完成时间**: 2024-01-15 14:00  
 **记录人**: K8s 学习者
 
+## ❓ 常见问题与知识补充
+
+### 1) apiVersion 如何正确配置
+- **基本格式**：`<group>/<version>` 或（核心组）`<version>`。
+  - **核心资源**（无组名）：`v1`，如 `Pod`、`Service`、`ConfigMap`、`Secret`。
+  - **工作负载/网络等扩展资源**：如 `apps/v1`（`Deployment`、`StatefulSet`、`DaemonSet`）、`batch/v1`（`Job`、`CronJob`）、`networking.k8s.io/v1`（`Ingress`、`NetworkPolicy`）。
+- **如何确认正确的 apiVersion**：
+  - `kubectl api-resources` 查看所有资源及其组/版本。
+  - `kubectl api-versions` 查看集群支持的 API 版本列表。
+  - `kubectl api-resources | grep Deployment` 快速定位某资源的组版本。
+  - 对现有对象：`kubectl get <kind> <name> -o yaml` 直接查看 `apiVersion`。
+- **稳定性级别**：
+  - 稳定版：`v1`（推荐生产使用）。
+  - Beta：`v1beta1`（功能相对稳定但可能变更）。
+  - Alpha：`v1alpha1`（实验性，不建议生产使用）。
+- **示例对照**：
+  ```yaml
+  apiVersion: v1
+  kind: Service
+  ---
+  apiVersion: apps/v1
+  kind: Deployment
+  ---
+  apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  ```
+- **最佳实践**：优先使用稳定版；定期关注弃用公告；确保与集群版本匹配。
+
+### 2) Deployment 的 selector 与 Service 的 selector 有何不同
+- **Deployment（控制器类）**：`spec.selector` 为 `LabelSelector` 类型，支持：
+  - `matchLabels`（等值匹配）
+  - `matchExpressions`（集合匹配：`In`/`NotIn`/`Exists`/`DoesNotExist`）
+  - 示例：
+    ```yaml
+    spec:
+      selector:
+        matchLabels:
+          app: web-app
+        matchExpressions:
+        - key: environment
+          operator: In
+          values: [production, staging]
+    ```
+- **Service**：`spec.selector` 为 `map[string]string`（简单键值等值匹配），不支持表达式：
+  ```yaml
+  spec:
+    selector:
+      app: web-app
+      tier: frontend
+  ```
+- **等价性说明**：在仅等值匹配的简单场景下，`matchLabels: { app: web-app }` 与 `selector: { app: web-app }` 的“匹配效果”类似，但两者字段结构不同，不能在不相容的资源里互换（控制器必须用 `LabelSelector` 结构，Service 用扁平 map）。
+
+### 3) 为什么 Deployment 不能写成 `selector: app: web-app`
+- **原因 1：API Schema 限制**：Deployment 使用 `LabelSelector` 对象，`spec.selector` 需要 `matchLabels`/`matchExpressions` 结构，不能是单层 map。
+- **原因 2：功能诉求**：控制器需要支持复杂选择逻辑（集合操作与组合条件），因此使用结构化的 `LabelSelector`。
+- **错误示例（会被 API 拒绝）**：
+  ```yaml
+  apiVersion: apps/v1
+  kind: Deployment
+  spec:
+    selector: app: web-app  # ❌ 非法：不是 LabelSelector 结构
+  ```
+- **正确示例**：
+  ```yaml
+  apiVersion: apps/v1
+  kind: Deployment
+  spec:
+    selector:
+      matchLabels:
+        app: web-app
+  ```
+- **设计对比**：
+  - 控制器（Deployment/ReplicaSet/StatefulSet/DaemonSet/Job）：`LabelSelector`
+  - Service：`map[string]string` 简单选择器，用于流量路由
+

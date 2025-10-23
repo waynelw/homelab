@@ -32,7 +32,7 @@ graph TB
     C2 --> |读取数据| ED
     
     subgraph "节点存储"
-        TMP[/tmp/emptydir-xxx]
+        TMP["/tmp/emptydir-xxx"]
     end
     
     ED --> |映射到| TMP
