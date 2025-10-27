@@ -1,0 +1,127 @@
+# Istio 配置 - 用户服务灰度发布
+
+# Destination Rule - 定义用户服务的子集
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: user-service-dr
+  namespace: ecommerce-microservices
+spec:
+  host: user-service
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+  trafficPolicy:
+    # 负载均衡策略
+    loadBalancer:
+      simple: LEAST_CONN
+    # 连接池配置
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 10
+        maxRequestsPerConnection: 2
+        idleTimeout: 180s
+    # 熔断器配置
+    outlierDetection:
+      consecutiveErrors: 3
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 50
+---
+# Virtual Service - 流量路由规则
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: user-service-vs
+  namespace: ecommerce-microservices
+spec:
+  hosts:
+  - user-service
+  http:
+  # 流量分割：90% v1, 10% v2
+  - route:
+    - destination:
+        host: user-service
+        subset: v1
+      weight: 90
+    - destination:
+        host: user-service
+        subset: v2
+      weight: 10
+  # 可选：基于 Headers 的路由
+  # - match:
+  #   - headers:
+  #       x-user-version:
+  #         exact: v2
+  #   route:
+  #   - destination:
+  #       host: user-service
+  #       subset: v2
+---
+# Gateway - 入口网关配置
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: ecommerce-gateway
+  namespace: ecommerce-microservices
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - user-service.local
+    - product-service.local
+    - order-service.local
+---
+# Virtual Service - API Gateway 路由
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: ecommerce-ingress-vs
+  namespace: ecommerce-microservices
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - ecommerce-gateway
+  http:
+  # 用户服务路由
+  - match:
+    - uri:
+        prefix: /api/v1/users
+    - uri:
+        prefix: /api/v1/auth
+    route:
+    - destination:
+        host: user-service
+        port:
+          number: 8081
+  # 商品服务路由
+  - match:
+    - uri:
+        prefix: /api/v1/products
+    route:
+    - destination:
+        host: product-service
+        port:
+          number: 8082
+  # 订单服务路由
+  - match:
+    - uri:
+        prefix: /api/v1/orders
+    route:
+    - destination:
+        host: order-service
+        port:
+          number: 8083

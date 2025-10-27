@@ -1,0 +1,146 @@
+# Istio 故障注入配置
+
+# 用户服务故障注入 - 延迟注入
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: user-service-fault-injection
+  namespace: ecommerce-microservices
+spec:
+  hosts:
+  - user-service
+  http:
+  # 50% 的请求注入 5 秒延迟
+  - fault:
+      delay:
+        percentage:
+          value: 50
+        fixedDelay: 5s
+    route:
+    - destination:
+        host: user-service
+        subset: v1
+---
+# 用户服务故障注入 - 错误注入
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: user-service-error-injection
+  namespace: ecommerce-microservices
+spec:
+  hosts:
+  - user-service
+  http:
+  # 10% 的请求返回 500 错误
+  - fault:
+      abort:
+        percentage:
+          value: 10
+        httpStatus: 500
+    route:
+    - destination:
+        host: user-service
+        subset: v1
+---
+# 逐步灰度发布配置
+# 阶段 1: 10% v2
+# 阶段 2: 25% v2
+# 阶段 3: 50% v2
+# 阶段 4: 75% v2
+# 阶段 5: 100% v2
+
+# 当前配置：10% 流量到 v2
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: user-service-canary
+  namespace: ecommerce-microservices
+spec:
+  hosts:
+  - user-service
+  http:
+  - route:
+    - destination:
+        host: user-service
+        subset: v1
+      weight: 90
+    - destination:
+        host: user-service
+        subset: v2
+      weight: 10
+---
+# 熔断器配置增强版
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: user-service-circuit-breaker
+  namespace: ecommerce-microservices
+spec:
+  host: user-service
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 10
+        maxRequestsPerConnection: 2
+        http2MaxRequests: 20
+        idleTimeout: 180s
+    outlierDetection:
+      consecutiveErrors: 5
+      interval: 30s
+      baseEjectionTime: 60s
+      maxEjectionPercent: 50
+      minHealthPercent: 50
+    tls:
+      mode: ISTIO_MUTUAL
+---
+# mTLS 配置
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: ecommerce-microservices
+spec:
+  mtls:
+    mode: STRICT
+---
+# 授权策略
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: user-service-authz
+  namespace: ecommerce-microservices
+spec:
+  selector:
+    matchLabels:
+      app: user-service
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/ecommerce-microservices/sa/order-service"]
+    - source:
+        principals: ["cluster.local/ns/ecommerce-microservices/sa/product-service"]
+    to:
+    - operation:
+        methods: ["GET", "POST", "PUT", "DELETE"]
+---
+# 请求重试配置
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: user-service-retry
+  namespace: ecommerce-microservices
+spec:
+  hosts:
+  - user-service
+  http:
+  - route:
+    - destination:
+        host: user-service
+        subset: v1
+    retries:
+      attempts: 3
+      perTryTimeout: 2s
+      retryOn: 5xx,reset,connect-failure,refused-stream
+    timeout: 10s
