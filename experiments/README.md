@@ -75,15 +75,23 @@ experiments/
 │   └── configmap.md        # ConfigMap 配置管理
 ├── 06-security/           # 安全和 RBAC 实验 ✅
 │   └── rbac-demo.md        # RBAC 权限控制
-├── 07-scheduling/         # 调度实验 ⏳
-├── 08-monitoring/         # 监控实验 ⏳
-├── 09-gitops/            # GitOps 实验 ⏳
-├── 10-tekton/            # Tekton CI/CD 实验 ⏳
+├── 07-scheduling/         # 调度实验 ✅
+│   ├── node-selector.md   # 节点选择器
+│   ├── node-affinity.md   # 亲和性和反亲和性
+│   └── taints-tolerations.md # 污点和容忍
+├── 08-monitoring/         # 监控实验 ✅
+│   ├── metrics-server.md  # Metrics Server 资源监控
+│   └── prometheus.md      # Prometheus 自定义监控
+├── 09-gitops/            # GitOps 实验 ✅
+│   └── argocd.md         # ArgoCD 部署
+├── 10-tekton/            # Tekton CI/CD 实验 ✅
+│   ├── pipeline-basics.md # Pipeline 基础
+│   └── trigger-automation.md # Trigger 自动触发
 ├── EXPERIMENTS-OVERVIEW.md # 实验总览
 └── README.md              # 本文件
 ```
 
-**图例**: ✅ 已完成 | ⏳ 待创建
+**图例**: ✅ 已完成
 
 ## 💡 实验建议
 
@@ -103,12 +111,12 @@ experiments/
 | 04-存储 | ✅ 完成 | ⭐⭐⭐ | 3 小时 |
 | 05-配置管理 | ✅ 完成 | ⭐⭐ | 1 小时 |
 | 06-安全 | ✅ 完成 | ⭐⭐⭐ | 1 小时 |
-| 07-调度 | ⏳ 待创建 | ⭐⭐⭐⭐ | 2 小时 |
-| 08-监控 | ⏳ 待创建 | ⭐⭐⭐⭐ | 3 小时 |
-| 09-GitOps | ⏳ 待创建 | ⭐⭐⭐⭐⭐ | 4 小时 |
-| 10-Tekton | ⏳ 待创建 | ⭐⭐⭐⭐⭐ | 4 小时 |
+| 07-调度 | ✅ 完成 | ⭐⭐⭐⭐ | 2 小时 |
+| 08-监控 | ✅ 完成 | ⭐⭐⭐⭐ | 3 小时 |
+| 09-GitOps | ✅ 完成 | ⭐⭐⭐⭐⭐ | 4 小时 |
+| 10-Tekton | ✅ 完成 | ⭐⭐⭐⭐⭐ | 4 小时 |
 
-**总计**: 6 个模块已完成，4 个模块待创建
+**总计**: 10 个模块全部完成
 
 ## 🧹 清理实验资源
 

@@ -1,0 +1,265 @@
+# Tekton Pipeline 配置文件
+
+---
+# 基础 Task
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: hello-world
+  namespace: experiments
+  labels:
+    app: hello-world
+spec:
+  description: "A simple hello world task"
+  steps:
+  - name: echo-hello
+    image: ubuntu:20.04
+    command:
+    - echo
+    args:
+    - "Hello, Tekton!"
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+  - name: echo-world
+    image: ubuntu:20.04
+    command:
+    - echo
+    args:
+    - "This is a Tekton Pipeline!"
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+
+---
+# 带参数的 Task
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: echo-task
+  namespace: experiments
+  labels:
+    app: echo-task
+spec:
+  description: "A task that echoes a message"
+  params:
+  - name: message
+    type: string
+    description: "The message to echo"
+    default: "Hello from Task!"
+  steps:
+  - name: echo-message
+    image: ubuntu:20.04
+    command:
+    - echo
+    args:
+    - $(params.message)
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+
+---
+# 构建 Task
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: build-task
+  namespace: experiments
+  labels:
+    app: build-task
+spec:
+  description: "A task that builds a simple application"
+  params:
+  - name: app-name
+    type: string
+    description: "The name of the application"
+    default: "my-app"
+  steps:
+  - name: build
+    image: golang:1.19-alpine
+    command:
+    - sh
+    - -c
+    - |
+      echo "Building $(params.app-name)..."
+      echo "Build completed successfully!"
+    resources:
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+
+---
+# 测试 Task
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: test-task
+  namespace: experiments
+  labels:
+    app: test-task
+spec:
+  description: "A task that runs tests"
+  params:
+  - name: test-suite
+    type: string
+    description: "The test suite to run"
+    default: "unit"
+  steps:
+  - name: run-tests
+    image: ubuntu:20.04
+    command:
+    - sh
+    - -c
+    - |
+      echo "Running $(params.test-suite) tests..."
+      echo "All tests passed!"
+    resources:
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+
+---
+# 部署 Task
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: deploy-task
+  namespace: experiments
+  labels:
+    app: deploy-task
+spec:
+  description: "A task that deploys an application"
+  params:
+  - name: environment
+    type: string
+    description: "The deployment environment"
+    default: "dev"
+  steps:
+  - name: deploy
+    image: ubuntu:20.04
+    command:
+    - sh
+    - -c
+    - |
+      echo "Deploying to $(params.environment) environment..."
+      echo "Deployment completed successfully!"
+    resources:
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+
+---
+# 简单 Pipeline
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: hello-pipeline
+  namespace: experiments
+  labels:
+    app: hello-pipeline
+spec:
+  description: "A simple hello world pipeline"
+  params:
+  - name: message
+    type: string
+    description: "The message to display"
+    default: "Hello from Pipeline!"
+  tasks:
+  - name: hello-task
+    taskRef:
+      name: hello-world
+  - name: echo-message
+    taskRef:
+      name: echo-task
+    params:
+    - name: message
+      value: $(params.message)
+
+---
+# CI/CD Pipeline
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: cicd-pipeline
+  namespace: experiments
+  labels:
+    app: cicd-pipeline
+spec:
+  description: "A complete CI/CD pipeline"
+  params:
+  - name: app-name
+    type: string
+    description: "The name of the application"
+    default: "my-app"
+  - name: environment
+    type: string
+    description: "The deployment environment"
+    default: "dev"
+  - name: test-suite
+    type: string
+    description: "The test suite to run"
+    default: "unit"
+  tasks:
+  - name: build
+    taskRef:
+      name: build-task
+    params:
+    - name: app-name
+      value: $(params.app-name)
+  - name: test
+    taskRef:
+      name: test-task
+    params:
+    - name: test-suite
+      value: $(params.test-suite)
+    runAfter:
+    - build
+  - name: deploy
+    taskRef:
+      name: deploy-task
+    params:
+    - name: environment
+      value: $(params.environment)
+    runAfter:
+    - test
+
+---
+# PipelineRun 示例
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: hello-pipeline-run
+  namespace: experiments
+  labels:
+    app: hello-pipeline-run
+spec:
+  pipelineRef:
+    name: hello-pipeline
+  params:
+  - name: message
+    value: "Hello from PipelineRun!"
+  timeout: "10m"
+
+---
+# CI/CD PipelineRun 示例
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: cicd-pipeline-run
+  namespace: experiments
+  labels:
+    app: cicd-pipeline-run
+spec:
+  pipelineRef:
+    name: cicd-pipeline
+  params:
+  - name: app-name
+    value: "sample-app"
+  - name: environment
+    value: "dev"
+  - name: test-suite
+    value: "unit"
+  timeout: "30m"

@@ -1,0 +1,175 @@
+# 自定义指标配置文件
+
+---
+# 带监控注解的测试应用
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monitored-app
+  namespace: experiments
+  labels:
+    app: monitored-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: monitored-app
+  template:
+    metadata:
+      labels:
+        app: monitored-app
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: app
+        image: nginx:1.21
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+# 自定义指标应用
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: custom-metrics-app
+  namespace: experiments
+  labels:
+    app: custom-metrics-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: custom-metrics-app
+  template:
+    metadata:
+      labels:
+        app: custom-metrics-app
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: app
+        image: prom/node-exporter:latest
+        ports:
+        - containerPort: 8080
+        args:
+        - --web.listen-address=:8080
+        - --path.procfs=/host/proc
+        - --path.sysfs=/host/sys
+        - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+        volumeMounts:
+        - name: proc
+          mountPath: /host/proc
+          readOnly: true
+        - name: sys
+          mountPath: /host/sys
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+      volumes:
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: sys
+        hostPath:
+          path: /sys
+
+---
+# 业务指标应用
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: business-metrics-app
+  namespace: experiments
+  labels:
+    app: business-metrics-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: business-metrics-app
+  template:
+    metadata:
+      labels:
+        app: business-metrics-app
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: app
+        image: nginx:1.21
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        # 模拟业务指标
+        command: ["sh", "-c"]
+        args:
+        - |
+          # 创建简单的指标端点
+          cat > /usr/share/nginx/html/metrics << 'EOF'
+          # HELP http_requests_total Total number of HTTP requests
+          # TYPE http_requests_total counter
+          http_requests_total{method="GET",status="200"} 1000
+          http_requests_total{method="POST",status="200"} 500
+          http_requests_total{method="GET",status="404"} 50
+          
+          # HELP http_request_duration_seconds HTTP request duration in seconds
+          # TYPE http_request_duration_seconds histogram
+          http_request_duration_seconds_bucket{le="0.1"} 800
+          http_request_duration_seconds_bucket{le="0.5"} 1200
+          http_request_duration_seconds_bucket{le="1.0"} 1400
+          http_request_duration_seconds_bucket{le="+Inf"} 1500
+          http_request_duration_seconds_sum 750
+          http_request_duration_seconds_count 1500
+          
+          # HELP active_connections Current number of active connections
+          # TYPE active_connections gauge
+          active_connections 25
+          EOF
+          
+          # 启动 nginx
+          nginx -g "daemon off;"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi

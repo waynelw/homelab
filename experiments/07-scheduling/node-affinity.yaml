@@ -1,0 +1,208 @@
+# 节点亲和性实验配置文件
+
+---
+# 硬约束节点亲和性 Pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hard-affinity-demo
+  namespace: experiments
+  labels:
+    app: hard-affinity-demo
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: zone
+            operator: In
+            values:
+            - us-west-1
+            - us-west-2
+          - key: instance-type
+            operator: In
+            values:
+            - m5.large
+            - m5.xlarge
+  restartPolicy: Always
+
+---
+# 软约束节点亲和性 Pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: soft-affinity-demo
+  namespace: experiments
+  labels:
+    app: soft-affinity-demo
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+          - key: zone
+            operator: In
+            values:
+            - us-west-1
+      - weight: 50
+        preference:
+          matchExpressions:
+          - key: instance-type
+            operator: In
+            values:
+            - m5.xlarge
+  restartPolicy: Always
+
+---
+# 节点反亲和性 Pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: anti-affinity-demo
+  namespace: experiments
+  labels:
+    app: anti-affinity-demo
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: zone
+            operator: NotIn
+            values:
+            - us-east-1
+  restartPolicy: Always
+
+---
+# 复杂亲和性规则 Pod（硬约束 + 软约束）
+apiVersion: v1
+kind: Pod
+metadata:
+  name: complex-affinity-demo
+  namespace: experiments
+  labels:
+    app: complex-affinity-demo
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: zone
+            operator: In
+            values:
+            - us-west-1
+            - us-west-2
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+          - key: instance-type
+            operator: In
+            values:
+            - m5.xlarge
+      - weight: 50
+        preference:
+          matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - node-1
+  restartPolicy: Always
+
+---
+# 不同操作符测试 Pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: operator-test-demo
+  namespace: experiments
+  labels:
+    app: operator-test-demo
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: zone
+            operator: Exists  # 存在 zone 标签
+          - key: maintenance
+            operator: DoesNotExist  # 不存在 maintenance 标签
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+          - key: cpu-cores
+            operator: Gt  # CPU 核心数大于 4
+            values:
+            - "4"
+          - key: memory-gb
+            operator: Lt  # 内存小于 16GB
+            values:
+            - "16"
+  restartPolicy: Always

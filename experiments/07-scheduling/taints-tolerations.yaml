@@ -1,0 +1,172 @@
+# 污点和容忍实验配置文件
+
+---
+# 基础容忍 Pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: toleration-demo
+  namespace: experiments
+  labels:
+    app: toleration-demo
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+  tolerations:
+  - key: "key1"
+    operator: "Equal"
+    value: "value1"
+    effect: "NoSchedule"
+  restartPolicy: Always
+
+---
+# 复杂容忍规则 Pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: complex-toleration-demo
+  namespace: experiments
+  labels:
+    app: complex-toleration-demo
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+  tolerations:
+  - key: "key1"
+    operator: "Equal"
+    value: "value1"
+    effect: "NoSchedule"
+  - key: "key2"
+    operator: "Exists"
+    effect: "NoExecute"
+  - key: "key3"
+    operator: "Equal"
+    value: "value3"
+    effect: "NoExecute"
+    tolerationSeconds: 300  # 容忍 5 分钟
+  restartPolicy: Always
+
+---
+# 系统 Pod 容忍示例
+apiVersion: v1
+kind: Pod
+metadata:
+  name: system-pod-demo
+  namespace: experiments
+  labels:
+    app: system-pod-demo
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+  tolerations:
+  # 容忍所有污点（系统 Pod 常用）
+  - operator: "Exists"
+    effect: "NoSchedule"
+  - operator: "Exists"
+    effect: "NoExecute"
+  # 容忍特定污点
+  - key: "node.kubernetes.io/not-ready"
+    operator: "Exists"
+    effect: "NoExecute"
+    tolerationSeconds: 300
+  - key: "node.kubernetes.io/unreachable"
+    operator: "Exists"
+    effect: "NoExecute"
+    tolerationSeconds: 300
+  restartPolicy: Always
+
+---
+# GPU 节点专用 Pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gpu-pod-demo
+  namespace: experiments
+  labels:
+    app: gpu-pod-demo
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+  tolerations:
+  - key: "nvidia.com/gpu"
+    operator: "Exists"
+    effect: "NoSchedule"
+  - key: "gpu-node"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+  restartPolicy: Always
+
+---
+# 维护模式容忍 Pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: maintenance-pod-demo
+  namespace: experiments
+  labels:
+    app: maintenance-pod-demo
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+  tolerations:
+  - key: "maintenance"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+  - key: "maintenance"
+    operator: "Equal"
+    value: "true"
+    effect: "NoExecute"
+    tolerationSeconds: 600  # 容忍 10 分钟
+  restartPolicy: Always
